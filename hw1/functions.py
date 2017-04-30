@@ -89,3 +89,52 @@ def findSimTerm(model, string):
     sortedTermSim = sorted(termSim.items(), key=operator.itemgetter(1), reverse=True)
     return sortedTermSim
 
+def getSimTerms(model, baseTerms, threshold):
+    newTerms = set()
+    for i, term in enumerate(baseTerms):
+        newTerms.add(term)
+        sortedTermSim = findSimTerm(model, term)
+        for newTerm, sim in sortedTermSim:
+            if sim > threshold[i]:
+                newTerms.add(newTerm)
+    return newTerms
+
+def readTestReview(filename):
+    testReviewDict = {}
+    lines = [line.rstrip('\n') for line in open(filename)]
+    i = 0
+    while i < len(lines):
+        testReviewDict[int(lines[i])] = lines[i+1]
+        i+=2
+        
+    return testReviewDict
+
+
+
+def containTerms(review, aspectTerms):
+    terms = review.split(' ')
+    for term in terms:
+        if term in aspectTerms:
+            return True
+        
+def countLabel(review, aspect, serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms):
+    if aspect == '服務':
+        if containTerms(review, serviceNewTerms):
+            return -1
+    elif aspect == '環境':
+        if containTerms(review, envNewTerms):
+            return -1
+    elif aspect == '價格':
+        if containTerms(review, priceNewTerms):
+            return -1
+    elif aspect == '交通':
+        if containTerms(review, trafficNewTerms):
+            return -1
+    elif aspect == '餐廳':
+        if containTerms(review, restaurantNewTerms):
+            return -1
+    return 0
+    
+        
+    
+
