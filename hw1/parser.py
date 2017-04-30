@@ -77,7 +77,7 @@ if __name__ == '__main__':
                 if opt.bigram:
                     bigram(line, output, trim)
                 else:
-                    parse_out(seg, line, output, trim)  # review content
+                    parse_out(seg, str, output, trim)  # review content
 
             else:  # test_review
                 output.write(line)  # review index
