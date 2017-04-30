@@ -33,6 +33,7 @@ For clearer usage explanation, please refer to `python3 JLabeledLDA.py -h`.
 java -cp bin:lib/args4j-2.0.6.jar:lib/trove-3.0.3.jar jgibblda.LDA -est [-ntopics 5] -dir ./model -dfile labeled.out.gz -model <name> -niters 300
 ```
 
+* For more parameter setting, please [go to here](http://jgibblda.sourceforge.net/).
 * Remember, `labeled.out.gz` actually means `./model/labeled.out.gz`.
 * Also, `-model <name>` is needed for it to save the model.
 
