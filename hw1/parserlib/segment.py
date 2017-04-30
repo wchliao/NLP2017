@@ -32,13 +32,15 @@ class Segment:
             self.new_file.write(word + "\n")
 
 
-    def parse(self, content):
+    def parse(self, content, trim=True):
         """
         Parse paragraph into word segments.
         
         Args:
             content (string): paragraph to be parsed.
         """
+        if not trim:
+            return list(jieba.cut(content, cut_all=False))
         return list(jieba.cut(self.trim_punct(content), cut_all=False))
 
     def get_keywords(self, content, KEY_NUM=10):
