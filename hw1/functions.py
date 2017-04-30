@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from hanziconv import HanziConv
 import jieba
 import gensim
@@ -12,8 +14,12 @@ def readDictBig(filename):
 		d[tmp[0]] = tmp[2]
 	return d
 	
-def comment2sentence(term2POS, comment, contents, isPolarity):
+def split2sentences(comment):
     sentences = re.split('[,.～！，。；]', comment)
+    return sentences
+
+def comment2sentence(term2POS, comment, contents, isPolarity):
+    sentences = split2sentences(comment)
     for i, sentence in enumerate(sentences):
         if isPolarity and i == 0:
             terms = sentence.split('\t')[1].split(' ')
@@ -60,7 +66,6 @@ def parseTestReviewOut(filename, term2POS):
         contents = comment2sentence(term2POS, lines[i], contents, False)
         i += 1
     return contents
-
 
 def parseAspectOut(filename, term2POS):
     contents = []
