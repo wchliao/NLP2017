@@ -43,6 +43,15 @@ def toSimplified(inputFileName, outputFileName):
 	f.close()
 	output.close()
 
+def toTraditional(inputFileName, outputFileName):
+	output = open(outputFileName, "w")
+	f = open(inputFileName, "r")
+	content = f.read()
+	trad = HanziConv.toTraditional(content)
+	output.write(trad)
+	f.close()
+	output.close()
+
 def segment(input_str):
 	seg_list = jieba.cut(input_str, cut_all=False)
 	print(', '.join(seg_list));
