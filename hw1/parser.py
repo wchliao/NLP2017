@@ -2,10 +2,12 @@ from parserlib.segment import Segment
 import argparse
 import sys
 
-punct = u''':!),.:;?]}¢'"、。〉》」』】〕〗〞
-         ︰︱︳﹐､﹒﹔﹕﹖﹗﹚﹜﹞！），．：；？｜｝︴︶︸︺︼︾﹀﹂
-         ﹄﹏､～￠々‖•·ˇˉ―--′’”([{£¥'"‵〈《「『【〔〖（［｛￡￥〝︵
-         ︷︹︻︽︿﹁﹃﹙﹛﹝（｛“‘-—_…'''
+# punct = u''':!),.:;?]}¢'"、。〉》」』】〕〗〞
+         # ︰︱︳﹐､﹒﹔﹕﹖﹗﹚﹜﹞！），．：；？｜｝︴︶︸︺︼︾﹀﹂
+         # ﹄﹏､～￠々‖•·ˇˉ―--′’”([{£¥'"‵〈《「『【〔〖（［｛￡￥〝︵
+         # ︷︹︻︽︿﹁﹃﹙﹛﹝（｛“‘-—_…'''
+
+punct = u",.，。～；!！"
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Parse paragraphs.')
