@@ -19,6 +19,7 @@ def main(opt):
 
     if opt.polarity:  # Unlabeled
         unlabeled = Reader.polarity(opt.polarity)
+        print (unlabeled[:3])
         for val, sentences in unlabeled:
             file.write(" %s\n" % " ".join(
                 [ x for sent in sentences for x in sent ]))

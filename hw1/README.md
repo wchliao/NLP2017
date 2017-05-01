@@ -18,6 +18,45 @@ python3 parser.py -t -i data/test_review.txt -o test.out
 
 For detailed usage, please use `python3 parser.py -h`
 
+## Labeled LDA
+
+1. Install JGibbLabeledLDA module
+
+Please follow https://github.com/linamy85/NLP2017/blob/master/hw1/JGibbLabeledLDA.md
+
+2. Preprocess the data input
+
+```
+# Generate training data file.
+python3 JLabeledLDA.py -o labeled.lda -a aspect.out -p polarity.out -t test.out
+
+# Generate testing data file.
+python3 JLabeledLDA.py -o test.lda -t test.out
+gzip labeled.out
+```
+
+* It will replace the `labeled.lda` by `labeled.lda.gz`.
+
+3. Train model
+
+```
+java -cp bin:lib/args4j-2.0.6.jar:lib/trove-3.0.3.jar jgibblda.LDA -est -ntopics 5 -dir ./model -dfile labeled.out.gz -model <model> -niters 300
+```
+
+4. Inference answer by model
+
+```
+java -cp bin:lib/args4j-2.0.6.jar:lib/trove-3.0.3.jar jgibblda.LDA -inf -dir ./model -model <model> -niters 50 -dfile labeled.out.gz
+```
+
+5. Generate answer!
+
+```
+gunzip <file>.<model>.theta.gz
+python3 After_JGibbLabeledLDA.py -r <file>.<model>.theta -t test.out -q test.csv -o <answer.csv> [-d debug.out] [-x 0.3]
+```
+
+Please use `python3 After_JGibbLabeledLDA.py -h` for further detailed usage.
 
 ## Polarity Decider
 
