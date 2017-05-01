@@ -1,7 +1,10 @@
+# -*- coding: utf-8 -*-
+
 from hanziconv import HanziConv
 import jieba
 import gensim
 import operator
+import re
 
 def readDictBig(filename):
 	d = {}
@@ -11,6 +14,25 @@ def readDictBig(filename):
 		d[tmp[0]] = tmp[2]
 	return d
 	
+def split2sentences(comment):
+    sentences = re.split('[,.～！，。；]', comment)
+    return sentences
+
+def comment2sentence(term2POS, comment, contents, isPolarity):
+    sentences = split2sentences(comment)
+    for i, sentence in enumerate(sentences):
+        if isPolarity and i == 0:
+            terms = sentence.split('\t')[1].split(' ')
+        else:
+            terms = sentence.split(' ')
+        content = []
+        for term in terms:
+            if term == '':
+                continue
+            if term in term2POS.keys():
+                content.append(term)
+        contents.append(content)
+    return contents
 
 def toSimplified(inputFileName, outputFileName):
 	output = open(outputFileName, "w")
@@ -18,6 +40,15 @@ def toSimplified(inputFileName, outputFileName):
 	content = f.read()
 	simplified = HanziConv.toSimplified(content)
 	output.write(simplified)
+	f.close()
+	output.close()
+
+def toTraditional(inputFileName, outputFileName):
+	output = open(outputFileName, "w")
+	f = open(inputFileName, "r")
+	content = f.read()
+	trad = HanziConv.toTraditional(content)
+	output.write(trad)
 	f.close()
 	output.close()
 
@@ -30,14 +61,7 @@ def parsePolarityOut(filename, term2POS):
     lines = [line.rstrip('\n') for line in open(filename)]
     i = 0
     while i < len(lines):
-        terms = lines[i].split('\t')[1].split(' ')
-        content = []
-        for term in terms:
-            if term == '':
-                continue
-            if term in term2POS.keys(): #and ('n' in term2POS[term] or 'i' in term2POS[term]  or 'v' in term2POS[term]) :
-                content.append(term)
-        contents.append(content)
+        contents = comment2sentence(term2POS, lines[i], contents, True)
         i+=1
     
     return contents
@@ -48,17 +72,9 @@ def parseTestReviewOut(filename, term2POS):
     i = 0
     while i < len(lines):
         i += 1
-        terms = lines[i].split(' ')
-        content = []
-        for term in terms:
-            if term == '':
-                continue
-            if term in term2POS.keys(): 
-                content.append(term)
-        contents.append(content)
+        contents = comment2sentence(term2POS, lines[i], contents, False)
         i += 1
     return contents
-
 
 def parseAspectOut(filename, term2POS):
     contents = []
@@ -66,14 +82,7 @@ def parseAspectOut(filename, term2POS):
     i = 0
     while i < len(lines):
         i += 1
-        terms = lines[i].split(' ')
-        content = []
-        for term in terms:
-            if term == '':
-                continue
-            if term in term2POS.keys():
-                content.append(term)
-        contents.append(content)
+        contents = comment2sentence(term2POS, lines[i], contents, False)
         i += 3
     return contents
 
@@ -134,7 +143,17 @@ def countLabel(review, aspect, serviceNewTerms, envNewTerms, priceNewTerms, traf
         if containTerms(review, restaurantNewTerms):
             return -1
     return 0
-    
-        
-    
+   
 
+def decideAspect(review, serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms):
+    if containTerms(review, serviceNewTerms):
+        return 1
+    if containTerms(review, envNewTerms):
+        return 2
+    if containTerms(review, priceNewTerms):
+        return 3
+    if containTerms(review, trafficNewTerms):
+        return 4
+    if containTerms(review, restaurantNewTerms):
+        return 5
+    return 0
