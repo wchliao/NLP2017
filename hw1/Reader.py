@@ -16,7 +16,8 @@ class Reader:
             elif len(sent) > 0:  # Pushes new sentence.
                 sentences.append(sent[:])
                 sent = []
-        sentences.append(sent[:])
+        if len(sent) > 0:
+            sentences.append(sent[:])
 
         return sentences
 
