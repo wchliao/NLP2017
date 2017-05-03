@@ -3,6 +3,7 @@
 import argparse
 import sys
 import functions as func
+import Reader
 import operator
 import pandas as pd
 import numpy as np
@@ -45,25 +46,16 @@ def findSimilarTermsOfAllAspects(model, serviceTerms, envTerms, priceTerms, traf
 
 
 # DecideAspect for each sentence and write to file
-def decideAspectToFile(testReviewDict, serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms, filename):
+def decideAspectToFile(idsentences, serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms, filename):
     #f = open('Aspect_per_sentence.csv', 'w')
     f = open(filename, 'w')
-    for Id, comment in testReviewDict.items():
-        sentences = func.split2sentences(comment)
-        for sentence in sentences:
+    idsentences = Reader.Reader.test(args.test_simpl_file)
+    for Id, sentences in idsentences:
+        for i,sentence in enumerate(sentences):
             f.write(str(Id)+","+str(func.decideAspect(sentence, serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms))+'\n')
     f.close()
 
 
-
-# Count label (0 or not 0) according to input file
-def countLabelTofile(testReviewDict, testDF, serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms):
-    f = open('result.csv', 'w')
-    f.write('Id,Label\n')
-    for i in range(testDF.shape[0]):
-        Id, Review_id, Aspect = testDF.iloc[i]
-        f.write(str(Id)+","+str(func.countLabel(testReviewDict[int(Review_id)], str(Aspect), serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms))+'\n')
-    f.close()
 
 if __name__ == '__main__':
     
@@ -83,8 +75,10 @@ if __name__ == '__main__':
 
 
     # Read input file for submission
-    testReviewDict = func.readTestReview(args.test_simpl_file)    #'data/test_simpl.out')
-    #testDF = pd.read_csv(args.question_file)                     #'data/test.csv')
+    #testReviewDict = func.readTestReview(args.test_simpl_file)    #'data/test_simpl.out')
+    idsentences = Reader.Reader.test(args.test_simpl_file)
+    
+    testDF = pd.read_csv(args.question_file)                     #'data/test.csv')
 
     serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms = findSimilarTermsOfAllAspects(model, serviceTerms, envTerms, priceTerms, trafficTerms, restaurantTerms, float(args.threshold))
 
@@ -100,6 +94,6 @@ if __name__ == '__main__':
     #print(trafficNewTerms)
     #print(restaurantNewTerms)
 
-    decideAspectToFile(testReviewDict, serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms, args.output_file)
+    decideAspectToFile(idsentences, serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms, args.output_file)
 
     print('End')

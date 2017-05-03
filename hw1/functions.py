@@ -108,7 +108,7 @@ def getSimTerms(model, baseTerms, threshold):
     return newTerms
 
 def readTestReview(filename):
-    testReviewDict = {}
+    #testReviewDict = {}
     lines = [line.rstrip('\n') for line in open(filename)]
     i = 0
     while i < len(lines):
@@ -119,8 +119,8 @@ def readTestReview(filename):
 
 
 
-def containTerms(review, aspectTerms):
-    terms = review.split(' ')
+def containTerms(terms, aspectTerms):
+    #terms = review.split(' ')
     for term in terms:
         if term in aspectTerms:
             return True
