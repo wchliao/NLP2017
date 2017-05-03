@@ -1,6 +1,7 @@
 import argparse
 import csv
 import numpy as np
+from Reader import Reader as review_reader
 from collections import Counter
 from scipy.sparse import csr_matrix
 from sklearn import svm
@@ -10,6 +11,9 @@ from sklearn.metrics import accuracy_score
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    
+    parser.add_argument('-s', '--per_sentence', action='store_true', 
+            help='Run testing per sentence.')
 
     parser.add_argument('-p', '--polarity_file', help='Should give polarity file here.')
     parser.add_argument('-t', '--test_file', help='Should give test review file here.')
@@ -117,8 +121,24 @@ def WriteResult(filename, y):
     with open(filename, 'w') as f:
         writer = csv.writer(f)
         writer.writerow(['Id', 'Label'])
-        writer.writerows(np.append(np.arange(N).reshape(N,1) + 1, 
-            y.reshape(N,1), axis=1))
+        writer.writerows(np.append(
+            np.expand_dims(np.arange(N)+1, axis=1), 
+            np.expand_dims(y, axis=1), 
+            axis=1))
+
+    return
+
+
+def WriteResult_per_sent(filename, ID, y):
+    N = len(y)
+    y = np.array(y)
+
+    with open(filename, 'w') as f:
+        writer = csv.writer(f)
+        writer.writerows(np.append(
+            np.expand_dims(ID, axis=1),
+            np.expand_dims(y, axis=1),
+            axis=1))
 
     return
 
@@ -246,7 +266,7 @@ def train(polarity_file):
     feat_space = build_feat_space(xtrain, SO_dict, freq_cnter, 
             SO_threshold=1.0, 
             freq_threshold=100)
-    WriteDict(feat_space, 'feat.txt')
+    WriteDict(feat_space, 'polarity_feat.txt')
 
     new_SO_dict = {}
     for token in feat_space:
@@ -254,10 +274,10 @@ def train(polarity_file):
     WriteDict(new_SO_dict, 'so_dict.txt')
 
     xtrain_embed = word_embedding(xtrain, feat_space, new_SO_dict)
-    WriteSparseMatrix('embed.npy', xtrain_embed)
+    WriteSparseMatrix('polarity_embed.npy', xtrain_embed)
 
     model = run_train(ytrain, xtrain_embed)
-    joblib.dump(model, 'model.pkl')
+    joblib.dump(model, 'polarity_model.pkl')
     
     return
 
@@ -266,7 +286,7 @@ def test(test_file, question_file, output_file):
     testID, xtest = ReadTestReview(test_file)
     question = ReadQuestion(question_file)
 
-    feat_space = ReadDict('feat.txt')
+    feat_space = ReadDict('polarity_feat.txt')
     for key in feat_space:
         feat_space[key] = int(feat_space[key])
 
@@ -276,7 +296,7 @@ def test(test_file, question_file, output_file):
 
     xtest_embed = word_embedding(xtest, feat_space, SO_dict)
 
-    model = joblib.load('model.pkl')
+    model = joblib.load('polarity_model.pkl')
     pred = run_test(xtest_embed, model)
 
     result = []
@@ -288,10 +308,37 @@ def test(test_file, question_file, output_file):
     return
 
 
+def test_per_sent(test_file, output_file):
+    testID, xtest = [], []
+    test_reviews = review_reader.test(test_file)
+    for test_review in test_reviews:
+        for sent in test_review[1]:
+            testID.append(test_review[0])
+            xtest.append(sent)
+
+    feat_space = ReadDict('polarity_feat.txt')
+    for key in feat_space:
+        feat_space[key] = int(feat_space[key])
+
+    SO_dict = ReadDict('so_dict.txt')
+    for key in SO_dict:
+        SO_dict[key] = float(SO_dict[key])
+
+    xtest_embed = word_embedding(xtest, feat_space, SO_dict)
+
+    model = joblib.load('polarity_model.pkl')
+    pred = run_test(xtest_embed, model)
+
+    WriteResult_per_sent(output_file, testID, pred)
+
+
 if __name__ == '__main__':
     args = parse_args()
     if args.train:
         train(args.polarity_file)
     if args.test:
-        test(args.test_file, args.question_file, args.output_file)
+        if args.per_sentence:
+            test_per_sent(args.test_file, args.output_file)
+        else:
+            test(args.test_file, args.question_file, args.output_file)
 
