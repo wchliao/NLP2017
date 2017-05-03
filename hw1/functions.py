@@ -87,8 +87,7 @@ def parseAspectOut(filename, term2POS):
     return contents
 
 def train_word2vec_model(sentences):
-	#model = gensim.models.Word2Vec(sentences, size=100, window=5, min_count=5, workers=4)
-	model = gensim.models.Word2Vec(sentences, min_count=1)
+	model = gensim.models.Word2Vec(sentences, size=150, window=10, min_count=30, workers=4)
 	return model
 
 def findSimTerm(model, string):
@@ -126,22 +125,22 @@ def containTerms(review, aspectTerms):
         if term in aspectTerms:
             return True
         
-def countLabel(review, aspect, serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms):
+def decideMention(review, aspect, serviceNewTerms, envNewTerms, priceNewTerms, trafficNewTerms, restaurantNewTerms):
     if aspect == '服務':
         if containTerms(review, serviceNewTerms):
-            return -1
+            return 2
     elif aspect == '環境':
         if containTerms(review, envNewTerms):
-            return -1
+            return 2
     elif aspect == '價格':
         if containTerms(review, priceNewTerms):
-            return -1
+            return 2
     elif aspect == '交通':
         if containTerms(review, trafficNewTerms):
-            return -1
+            return 2
     elif aspect == '餐廳':
         if containTerms(review, restaurantNewTerms):
-            return -1
+            return 2
     return 0
    
 
