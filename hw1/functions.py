@@ -15,7 +15,7 @@ def readDictBig(filename):
 	return d
 	
 def split2sentences(comment):
-    sentences = re.split('[,.～！，。； ]', comment)
+    sentences = re.split('[,.～！，。；]', comment)
     return sentences
 
 def comment2sentence(term2POS, comment, contents, isPolarity):
