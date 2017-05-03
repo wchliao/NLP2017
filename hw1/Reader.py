@@ -1,10 +1,11 @@
 # coding=utf-8
 
 class Reader:
-    trim = u''':!),.:;?]}¢'"、。〉》」』】〕〗〞
-            ︰︱︳﹐､﹒﹔﹕﹖﹗﹚﹜﹞！），．：；？｜｝︴︶︸︺︼︾﹀﹂
-            ﹄﹏､～￠々‖•·ˇˉ―--′’”([{£¥'"‵〈《「『【〔〖（［｛￡￥〝︵
-            ︷︹︻︽︿﹁﹃﹙﹛﹝（｛“‘-—_…'''
+    # trim = u''':!),.:;?]}¢'"、。〉》」』】〕〗〞
+            # ︰︱︳﹐､﹒﹔﹕﹖﹗﹚﹜﹞！），．：；？｜｝︴︶︸︺︼︾﹀﹂
+            # ﹄﹏､～￠々‖•·ˇˉ―--′’”([{£¥'"‵〈《「『【〔〖（［｛￡￥〝︵
+            # ︷︹︻︽︿﹁﹃﹙﹛﹝（｛“‘-—_…'''
+    trim = u",.;!，。？！"
     @staticmethod
     def get_sentences(segs):
         sentences = []
@@ -15,6 +16,7 @@ class Reader:
             elif len(sent) > 0:  # Pushes new sentence.
                 sentences.append(sent[:])
                 sent = []
+        sentences.append(sent[:])
 
         return sentences
 
