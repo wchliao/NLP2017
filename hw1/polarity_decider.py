@@ -1,4 +1,5 @@
 import argparse
+import os
 import csv
 import numpy as np
 from Reader import Reader as review_reader
@@ -19,6 +20,7 @@ def parse_args():
     parser.add_argument('-t', '--test_file', help='Should give test review file here.')
     parser.add_argument('-q', '--question_file', help='Should give question file here.')
     parser.add_argument('-o', '--output_file', help='Should give output file here.')
+    parser.add_argument('-d', '--NTUSD_path', help='Should put NTUSD\'s path here.')
 
     parser.add_argument('--train', action='store_true', help='Run training.')
     parser.add_argument('--test', action='store_true', help='Run testing.')
@@ -53,7 +55,6 @@ def ReadTestReview(filename):
 
 
 def ReadQuestion(filename):
-
     Q = []
 
     with open(filename, 'r') as f:
@@ -64,6 +65,21 @@ def ReadQuestion(filename):
             Q.append((int(line[1]), line[2]))
 
     return Q
+
+
+def ReadNTUSD(pathname):
+    NTUSD_pos = []
+    NTUSD_neg = []
+
+    with open(os.path.join(pathname, 'NTUSD_pos.txt'), 'r') as f:
+        for sent in f.readlines():
+            NTUSD_pos.append(sent[:-1])
+    
+    with open(os.path.join(pathname, 'NTUSD_neg.txt'), 'r') as f:
+        for sent in f.readlines():
+            NTUSD_neg.append(sent[:-1])
+
+    return NTUSD_pos, NTUSD_neg
 
 
 def WriteDict(dictionary, filename):
@@ -143,7 +159,7 @@ def WriteResult_per_sent(filename, ID, y):
     return
 
 
-def ComputeSO(y, x):
+def ComputeSO(y, x, NTUSD_pos, NTUSD_neg):
     pos_cnter = Counter()
     neg_cnter = Counter()
     all_cnter = Counter()
@@ -171,6 +187,21 @@ def ComputeSO(y, x):
         NSO = (neg_cnter[token] + 1) / all_cnter[token]
         SO = np.log(PSO/NSO)
         SO_dict[token] = abs(SO)
+
+    k = 2
+    hit = 0
+    nhit = 0
+    for key in SO_dict.keys():
+        if key in NTUSD_pos and SO_dict[key] > 0:
+            hit += 1
+            SO_dict[key] = k * SO_dict[key] + 1
+        elif key in NTUSD_neg and SO_dict[key] < 0:
+            hit += 1
+            SO_dict[key] = k * SO_dict[key] + 1
+        else:
+            nhit += 1
+    print('hit:', hit)
+    print('nhit:', nhit)
 
     return SO_dict
 
@@ -257,14 +288,15 @@ def run_test(sparse_x, model):
     return pred
 
 
-def train(polarity_file):
+def train(polarity_file, NTUSD_path):
     ytrain, xtrain = ReadPolarity(polarity_file)
+    NTUSD_pos, NTUSD_neg = ReadNTUSD(NTUSD_path)
 
-    SO_dict = ComputeSO(ytrain, xtrain)
+    SO_dict = ComputeSO(ytrain, xtrain, NTUSD_pos, NTUSD_neg)
     freq_cnter = ComputeFreq(xtrain)
 
     feat_space = build_feat_space(xtrain, SO_dict, freq_cnter, 
-            SO_threshold=1.0, 
+            SO_threshold=0.5, 
             freq_threshold=100)
     WriteDict(feat_space, 'polarity_feat.txt')
 
@@ -335,7 +367,7 @@ def test_per_sent(test_file, output_file):
 if __name__ == '__main__':
     args = parse_args()
     if args.train:
-        train(args.polarity_file)
+        train(args.polarity_file, args.NTUSD_path)
     if args.test:
         if args.per_sentence:
             test_per_sent(args.test_file, args.output_file)

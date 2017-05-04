@@ -118,7 +118,6 @@ def MergeResult_per_sent(ID, aspect, polarity, question):
         else:
             result.append(0)
 
-
     return result
 
 

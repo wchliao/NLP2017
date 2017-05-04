@@ -65,10 +65,11 @@ Please use `python3 After_JGibbLabeledLDA.py -h` for further detailed usage.
 ### Usage (train)
 
 ```bash
-$ python3 polarity_decider.py [-p polarity_review.out] [--train]
+$ python3 polarity_decider.py [-p polarity_review.out] [-d NTUSD_path] [--train]
 ```
 
 * `[-p polarity_review.out]` put the corresponding path here
+* `[-d NTUSD_path]` put the path that NTUSD_pos.txt and NTUSD_neg.txt are
 * `[--train]` specifies the program to run training
 
 ### Usage (test per review)
