@@ -108,7 +108,7 @@ def getSimTerms(model, baseTerms, threshold):
     return newTerms
 
 def readTestReview(filename):
-    #testReviewDict = {}
+    testReviewDict = {}
     lines = [line.rstrip('\n') for line in open(filename)]
     i = 0
     while i < len(lines):
