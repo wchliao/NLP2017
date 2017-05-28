@@ -41,7 +41,7 @@ class Segment:
         """
         if not trim:
             return list(jieba.cut(content, cut_all=False))
-        return list(jieba.cut(self.trim_punct(content), cut_all=False))
+        return list(filter(lambda x: x, jieba.cut(self.trim_punct(content), cut_all=False)))
 
     def get_keywords(self, content, KEY_NUM=10):
         """

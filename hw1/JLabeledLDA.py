@@ -11,24 +11,38 @@ def main(opt):
 
     if opt.aspect:  # Labeled
         labeled = Reader.aspect(opt.aspect)
-        for id, sentences, good, bad in labeled:
-            file.write("[%s] %s\n" % (
-                " ".join(map(lambda x: mapping[x], good + bad)),
-                " ".join([ x for sent in sentences for x in sent ])
-            ))
+        if opt.sentence:
+            for id, sentences, good, bad in labeled:
+                for sent in sentences:
+                    file.write("%s\n" % (" ".join(sent)))
+        else:
+            for id, sentences, good, bad in labeled:
+                file.write("[%s] %s\n" % (
+                    " ".join(map(lambda x: mapping[x], good + bad)),
+                    " ".join([ x for sent in sentences for x in sent ])
+                ))
 
     if opt.polarity:  # Unlabeled
         unlabeled = Reader.polarity(opt.polarity)
-        print (unlabeled[:3])
-        for val, sentences in unlabeled:
-            file.write(" %s\n" % " ".join(
-                [ x for sent in sentences for x in sent ]))
+        if opt.sentence:
+            for val, sentences in unlabeled:
+                for sent in sentences:
+                    file.write(" %s\n" % " ".join(sent))
+        else:
+            for val, sentences in unlabeled:
+                file.write(" %s\n" % " ".join(
+                    [ x for sent in sentences for x in sent ]))
 
     if opt.test:  # Unlabeled
         unlabeled = Reader.test(opt.test)
-        for val, sentences in unlabeled:
-            file.write(" %s\n" % " ".join(
-                [ x for sent in sentences for x in sent ]))
+        if opt.sentence:
+            for val, sentences in unlabeled:
+                for sent in sentences:
+                    file.write(" %s\n" % " ".join([ x for x in sent ]))
+        else:    
+            for val, sentences in unlabeled:
+                file.write(" %s\n" % " ".join(
+                    [ x for sent in sentences for x in sent ]))
 
     file.close()
 
@@ -42,6 +56,9 @@ def parse_args():
 
     parser.add_argument('-o', '--output', required=True, 
                         help='Indicate output file.')
+
+    parser.add_argument('-s', '--sentence', action='store_true',
+                        help='Train per sentence (but no label identified)')
 
     return parser.parse_args()
 

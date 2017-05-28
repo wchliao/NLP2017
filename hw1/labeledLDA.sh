@@ -2,11 +2,13 @@
 
 DATA_DIR=""
 MODEL_NAME=""
-ITERATION="300"
+ITERATION="600"
 THRESHOLD="0.2"
 LIB_DIR="JGibbLabeledLDA/"
+DEBUG=false
+SENTENCE=false
 
-while getopts "l:d:m:i:t:v" optname
+while getopts "l:d:m:i:t:vs" optname
   do
     case "$optname" in
       "l")
@@ -32,6 +34,10 @@ while getopts "l:d:m:i:t:v" optname
 		DEBUG=true
         echo "DEBUG mode is on."
         ;;
+      "s")
+		SENTENCE=true
+        echo "SENTENCE mode is on."
+        ;;
       "?")
         echo "Unknown option $OPTARG"
         ;;
@@ -53,34 +59,50 @@ do
     [ ! -f $file ] && echo "Please have $file exist!" && exit 1
 done
 
+SENT_ARG=""
+$SENTENCE && SENT_ARG="-s"
+
 ####################################################
 
 # Generate training data file.
 echo "Generate LDA file input..."
-python3 JLabeledLDA.py -o $DATA_DIR/labeled.lda -a $DATA_DIR/aspect.out -p $DATA_DIR/polarity.out -t $DATA_DIR/test.out
-gzip $DATA_DIR/labeled.lda
+EXEC="python3 JLabeledLDA.py -o $DATA_DIR/labeled.lda -a $DATA_DIR/aspect.out -p $DATA_DIR/polarity.out -t $DATA_DIR/test.out"
+echo $EXEC
+eval $EXEC
+
+gzip -f $DATA_DIR/labeled.lda
 
 # Generate testing data file.
-python3 JLabeledLDA.py -o $DATA_DIR/test.lda -t $DATA_DIR/test.out
-gzip $DATA_DIR/test.lda
+EXEC="python3 JLabeledLDA.py -o $DATA_DIR/test.lda -t $DATA_DIR/test.out $SENT_ARG"
+echo $EXEC
+eval $EXEC
+
+gzip -f $DATA_DIR/test.lda
 
 ####################################################
 
 echo "Now training Labeled LDA model..."
-java -cp $LIB_DIR/bin:$LIB_DIR/lib/args4j-2.0.6.jar:$LIB_DIR/lib/trove-3.0.3.jar jgibblda.LDA -est \
-    -ntopics 5 -dir $DATA_DIR -dfile labeled.lda.gz -model $MODEL_NAME -niters $ITERATION
+EXEC="java -cp $LIB_DIR/bin:$LIB_DIR/lib/args4j-2.0.6.jar:$LIB_DIR/lib/trove-3.0.3.jar jgibblda.LDA -est \
+    -ntopics 5 -dir $DATA_DIR -dfile labeled.lda.gz -model $MODEL_NAME -niters $ITERATION"
+echo $EXEC
+eval $EXEC
 
 echo "Now inferencing testing data..."
-java -cp $LIB_DIR/bin:$LIB_DIR/lib/args4j-2.0.6.jar:$LIB_DIR/lib/trove-3.0.3.jar jgibblda.LDA -inf \
-    -dir $DATA_DIR -dfile test.lda.gz -model $MODEL_NAME -niters $ITERATION
+EXEC="java -cp $LIB_DIR/bin:$LIB_DIR/lib/args4j-2.0.6.jar:$LIB_DIR/lib/trove-3.0.3.jar jgibblda.LDA -inf \
+    -dir $DATA_DIR -dfile test.lda.gz -model $MODEL_NAME -niters $ITERATION"
+echo $EXEC
+eval $EXEC
 
 ####################################################
 
-gunzip $DATA_DIR/test.lda.$MODEL_NAME.theta.gz
+gunzip -f $DATA_DIR/test.lda.$MODEL_NAME.theta.gz
 
 [ $DEBUG ] && DEBUG_ARGU="-d $DATA_DIR/debug.out"
 
-python3 After_JGibbLabeledLDA.py -r $DATA_DIR/test.lda.$MODEL_NAME.theta \
-    -t $DATA_DIR/test.out -q $DATA_DIR/test.csv -o $DATA_DIR/lda_result.csv $DEBUG_ARGU -x $THRESHOLD
+EXEC="python3 After_JGibbLabeledLDA.py -r $DATA_DIR/test.lda.$MODEL_NAME.theta \
+    -t $DATA_DIR/test.out -q $DATA_DIR/test.csv -o $DATA_DIR/lda_result.csv $DEBUG_ARGU -x $THRESHOLD $SENT_ARG"
+
+echo $EXEC
+eval $EXEC
 
 echo "Labeled LDA done!"
