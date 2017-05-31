@@ -91,7 +91,7 @@ def ComputeProb(cnters, ytrain):
 
 
 def ComputeResult(x, best_relation):
-    result = ['Unknown'] * len(x)
+    result = ['Expansion'] * len(x)
     for i, sents in enumerate(x):
         p = 0
         merged_sent = sents[0] + sents[1]
