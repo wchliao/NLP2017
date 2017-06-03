@@ -10,6 +10,7 @@ from tensorflow.contrib import learn
 from collections import Counter
 import argparse
 
+# python3 cnn_github.py -ed 128 -fs 3,4,5 -fn 128 -d 0.8 -l 0 -r 0.0001 -b 128 -ep 200
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-ed', '--embedding_dim', help='')
@@ -37,6 +38,109 @@ def loadData(filename):
     y = labelToOneHot(np.asarray(df.Relation))
     return x_text, y
 
+def train_step(sess, cnn, x_batch, y_batch, train_op):
+    """
+    A single training step
+    """
+    feed_dict = {
+      cnn.input_x: x_batch,
+      cnn.input_y: y_batch,
+      cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
+    }
+    _, loss, accuracy = sess.run(
+        [train_op, cnn.loss, cnn.accuracy],
+        feed_dict)
+
+    return loss
+
+def dev_step(sess, cnn, x_batch, y_batch):
+    """
+    Evaluates model on a dev set
+    """
+    feed_dict = {
+      cnn.input_x: x_batch,
+      cnn.input_y: y_batch,
+      cnn.dropout_keep_prob: 1.0
+    }
+
+    accuracy = sess.run(cnn.accuracy, feed_dict)
+    return accuracy
+
+def generate_ans(sess, cnn, x_test):
+    """
+    Evaluates model on a dev set
+    """
+    feed_dict = {
+      cnn.input_x: x_test,
+      cnn.dropout_keep_prob: 1.0
+    }
+    ans = sess.run([cnn.predictions],feed_dict)
+    return ans
+
+def writeAns(sess, cnn, x_test, numToRelation, args):
+    ans = generate_ans(sess, cnn, x_test)
+
+    with open('./log/ans_cnn'+str(args.embedding_dim)+'_'+str(args.filter_sizes)+'_'+str(args.dropout_keep_prob)+'_'+str(args.l2_reg_lambda)+'_'+str(args.dropout_keep_prob)+'_'+str(args.batch_size)+'_'+str(args.num_epochs)+'.csv', 'w') as f:
+        f.write('Id,Relation\n')
+        for i, Id in enumerate(df_test['Id']):
+            f.write(str(Id)+","+numToRelation[ans[0][i]]+'\n')
+
+    print('=====================================================')
+    for k,v in Counter(ans[0]).items():
+        print(numToRelation[k], ":", v*100/sum(Counter(ans[0]).values()),'%')
+    print('=====================================================')
+    print('Done')
+
+
+def train(x_train, x_dev, y_train, y_dev):
+    with tf.Graph().as_default():
+        session_conf = tf.ConfigProto(
+          allow_soft_placement=FLAGS.allow_soft_placement,
+          log_device_placement=FLAGS.log_device_placement)
+        sess = tf.Session(config=session_conf)
+        with sess.as_default():
+            cnn = TextCNN(
+                sequence_length=x_train.shape[1],
+                num_classes=y_train.shape[1],
+                vocab_size=len(vocab_processor.vocabulary_),
+                embedding_size=FLAGS.embedding_dim,
+                filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
+                num_filters=FLAGS.num_filters,
+                l2_reg_lambda=FLAGS.l2_reg_lambda)
+
+            # Define Training procedure
+            global_step = tf.Variable(0, name="global_step", trainable=False)
+            optimizer = tf.train.AdamOptimizer(float(args.learning_rate))
+            grads_and_vars = optimizer.compute_gradients(cnn.loss)
+            train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
+
+            # Initialize all variables
+            sess.run(tf.global_variables_initializer())
+
+
+            # Generate batches
+            batches = data_helpers.batch_iter(list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
+            num_batches_per_epoch = int((len(x_train)-1)/FLAGS.batch_size) + 1
+
+            # Training loop. For each batch...
+            epoch_i = 0
+            loss_list = []
+            final_acc_eval = 0
+            for batch in batches:
+                x_batch, y_batch = zip(*batch)
+                loss_ret = train_step(sess, cnn, x_batch, y_batch, train_op)
+                loss_list.append(loss_ret)
+                current_step = tf.train.global_step(sess, global_step)
+                if (current_step+1) % num_batches_per_epoch == 0:
+                    epoch_i += 1
+                    print("Train:\t", epoch_i, '\tloss =', sum(loss_list)/len(loss_list))
+                    loss_list = []
+                    acc_eval = dev_step(sess, cnn, x_dev, y_dev)
+                    print("Evalu:\t", epoch_i, '\tacc =', acc_eval)
+                    if epoch_i == FLAGS.num_epochs:
+                        final_acc_eval = acc_eval
+
+            writeAns(sess, cnn, x_test, numToRelation, args)
 
 if __name__ == '__main__':
 
@@ -105,93 +209,5 @@ if __name__ == '__main__':
     # Training
     # ==================================================
 
-    with tf.Graph().as_default():
-        session_conf = tf.ConfigProto(
-          allow_soft_placement=FLAGS.allow_soft_placement,
-          log_device_placement=FLAGS.log_device_placement)
-        sess = tf.Session(config=session_conf)
-        with sess.as_default():
-            cnn = TextCNN(
-                sequence_length=x_train.shape[1],
-                num_classes=y_train.shape[1],
-                vocab_size=len(vocab_processor.vocabulary_),
-                embedding_size=FLAGS.embedding_dim,
-                filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
-                num_filters=FLAGS.num_filters,
-                l2_reg_lambda=FLAGS.l2_reg_lambda)
-
-            # Define Training procedure
-            global_step = tf.Variable(0, name="global_step", trainable=False)
-            optimizer = tf.train.AdamOptimizer(float(args.learning_rate))
-            grads_and_vars = optimizer.compute_gradients(cnn.loss)
-            train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
-
-            # Initialize all variables
-            sess.run(tf.global_variables_initializer())
-
-            def train_step(x_batch, y_batch, canPrint):
-                """
-                A single training step
-                """
-                feed_dict = {
-                  cnn.input_x: x_batch,
-                  cnn.input_y: y_batch,
-                  cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
-                }
-                _, step, loss, accuracy = sess.run(
-                    [train_op, global_step, cnn.loss, cnn.accuracy],
-                    feed_dict)
-                time_str = datetime.datetime.now().isoformat()
-                if canPrint:
-                    print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
-
-            def dev_step(x_batch, y_batch):
-                """
-                Evaluates model on a dev set
-                """
-                feed_dict = {
-                  cnn.input_x: x_batch,
-                  cnn.input_y: y_batch,
-                  cnn.dropout_keep_prob: 1.0
-                }
-                step, loss, accuracy = sess.run(
-                    [global_step, cnn.loss, cnn.accuracy],
-                    feed_dict)
-                time_str = datetime.datetime.now().isoformat()
-                print("step {}, loss {:g}, acc {:g}".format(step, loss, accuracy))
-
-            def generate_ans(x_test):
-                """
-                Evaluates model on a dev set
-                """
-                feed_dict = {
-                  cnn.input_x: x_test,
-                  cnn.dropout_keep_prob: 1.0
-                }
-                ans = sess.run([cnn.predictions],feed_dict)
-                return ans
-
-            # Generate batches
-            batches = data_helpers.batch_iter(
-                list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
-            num_batches_per_epoch = int((len(x_train)-1)/FLAGS.batch_size) + 1
-            # Training loop. For each batch...
-            epoch_i = 0
-            for batch in batches:
-                x_batch, y_batch = zip(*batch)
-                train_step(x_batch, y_batch, False)
-                current_step = tf.train.global_step(sess, global_step)
-                if (current_step+1) % num_batches_per_epoch == 0:
-                    print("Evaluation:", epoch_i, '\t', end='')
-                    epoch_i += 1
-                    dev_step(x_dev, y_dev)
-            ans = generate_ans(x_test)
-            with open('./log/ans_cnn'+'.csv', 'w') as f:
-                f.write('Id,Relation\n')
-                for i, Id in enumerate(df_test['Id']):
-                    f.write(str(Id)+","+numToRelation[ans[0][i]]+'\n')
-
-            for k,v in Counter(ans).items():
-                print(numToRelation[k], ":", v*100/sum(Counter(ans[0]).values()),'%')
-            print('Done')
-
+    train(x_train, x_dev, y_train, y_dev)
+    
