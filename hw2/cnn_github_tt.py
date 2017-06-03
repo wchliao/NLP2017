@@ -135,10 +135,11 @@ def train(x_train, x_dev, y_train, y_dev):
                     epoch_i += 1
                     print("Train:\t", epoch_i, '\tloss =', sum(loss_list)/len(loss_list))
                     loss_list = []
-                    acc_eval = dev_step(sess, cnn, x_dev, y_dev)
-                    print("Evalu:\t", epoch_i, '\tacc =', acc_eval)
-                    if epoch_i == FLAGS.num_epochs:
-                        final_acc_eval = acc_eval
+                    if (epoch_i % 5 == 0):
+                        acc_eval = dev_step(sess, cnn, x_dev, y_dev)
+                        print("Evalu:\t", epoch_i, '\tacc =', acc_eval)
+                        if epoch_i == FLAGS.num_epochs:
+                            final_acc_eval = acc_eval
 
             writeAns(sess, cnn, x_test, numToRelation, args)
 
