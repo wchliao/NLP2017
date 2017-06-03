@@ -7,8 +7,6 @@ import datetime
 from func.text_cnn import TextCNN
 import func.data_helpers as data_helpers
 from tensorflow.contrib import learn
-from random import shuffle
-import random as rd
 
 def labelToOneHot(array):
     dim = np.max(array) + 1
@@ -54,8 +52,6 @@ for attr, value in sorted(FLAGS.__flags.items()):
 print("")
 
 numToRelation = ['Expansion', 'Contingency', 'Comparison', 'Temporal']
-
-rd.seed(10)
 
 # Data Preparation
 # ==================================================
