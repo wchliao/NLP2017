@@ -26,7 +26,7 @@ def loadData(filename):
 # ==================================================
 
 # Data loading params
-tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
+tf.flags.DEFINE_float("dev_sample_percentage", .2, "Percentage of the training data to use for validation")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")
@@ -58,11 +58,15 @@ numToRelation = ['Expansion', 'Contingency', 'Comparison', 'Temporal']
 
 # Load data
 x_text, y = loadData('./data/train.simp.seg') #Not balanced
+df_test = pd.read_csv('./data/test.simp.seg')
+x_test_text = list(df_test.Clause1 + " " + df_test.Clause2)
+
 
 # Build vocabulary
-max_document_length = max([len(x.split(" ")) for x in x_text])
+max_document_length = max([len(x.split(" ")) for x in x_text]+[len(x.split(" ")) for x in x_test_text])
 vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
 x = np.array(list(vocab_processor.fit_transform(x_text)))
+x_test = np.array(list(vocab_processor.fit_transform(x_test_text)))
 
 # Randomly shuffle data
 np.random.seed(10)
@@ -137,6 +141,17 @@ with tf.Graph().as_default():
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
 
+        def generate_ans(x_test):
+            """
+            Evaluates model on a dev set
+            """
+            feed_dict = {
+              cnn.input_x: x_test,
+              cnn.dropout_keep_prob: 1.0
+            }
+            ans = sess.run([cnn.predictions],feed_dict)
+            return ans
+
         # Generate batches
         batches = data_helpers.batch_iter(
             list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
@@ -149,4 +164,10 @@ with tf.Graph().as_default():
             if (current_step+1) % num_batches_per_epoch == 0:
                 print("Evaluation:", end='')
                 dev_step(x_dev, y_dev)
+        ans = generate_ans(x_test)
+        with open('./log/ans_cnn'+'.csv', 'w') as f:
+            f.write('Id,Relation\n')
+            for i, Id in enumerate(df_test['Id']):
+                f.write(str(Id)+","+numToRelation[ans[0][i]]+'\n')
+        print('Done')
 
