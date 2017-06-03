@@ -77,10 +77,10 @@ def generate_ans(sess, cnn, x_test):
     ans = sess.run([cnn.predictions],feed_dict)
     return ans
 
-def writeAns(sess, cnn, x_test, numToRelation, args):
+def writeAns(sess, cnn, x_test, numToRelation, args, final_acc_eval):
     ans = generate_ans(sess, cnn, x_test)
 
-    with open('./log/ans_cnn'+str(args.embedding_dim)+'_'+str(args.filter_sizes)+'_'+str(args.dropout_keep_prob)+'_'+str(args.l2_reg_lambda)+'_'+str(args.dropout_keep_prob)+'_'+str(args.batch_size)+'_'+str(args.num_epochs)+'.csv', 'w') as f:
+    with open('./log/ans_cnn'+str(args.embedding_dim)+'_'+str(args.filter_sizes)+'_'+str(args.dropout_keep_prob)+'_'+str(args.l2_reg_lambda)+'_'+str(args.dropout_keep_prob)+'_'+str(args.batch_size)+'_'+str(args.num_epochs)+'_'+str(final_acc_eval)+'.csv', 'w') as f:
         f.write('Id,Relation\n')
         for i, Id in enumerate(df_test['Id']):
             f.write(str(Id)+","+numToRelation[ans[0][i]]+'\n')
@@ -92,7 +92,7 @@ def writeAns(sess, cnn, x_test, numToRelation, args):
     print('Done')
 
 
-def train(x_train, x_dev, y_train, y_dev):
+def train(numToRelation, x_train, x_dev, y_train, y_dev, x_test):
     with tf.Graph().as_default():
         session_conf = tf.ConfigProto(
           allow_soft_placement=FLAGS.allow_soft_placement,
@@ -138,10 +138,9 @@ def train(x_train, x_dev, y_train, y_dev):
                     if (epoch_i % 5 == 0):
                         acc_eval = dev_step(sess, cnn, x_dev, y_dev)
                         print("Evalu:\t", epoch_i, '\tacc =', acc_eval)
-                        if epoch_i == FLAGS.num_epochs:
-                            final_acc_eval = acc_eval
+                        if acc_eval > 0.7:
+                            writeAns(sess, cnn, x_test, numToRelation, args, acc_eval)
 
-            writeAns(sess, cnn, x_test, numToRelation, args)
 
 if __name__ == '__main__':
 
@@ -210,5 +209,5 @@ if __name__ == '__main__':
     # Training
     # ==================================================
 
-    train(x_train, x_dev, y_train, y_dev)
+    train(numToRelation, x_train, x_dev, y_train, y_dev, x_test)
     
