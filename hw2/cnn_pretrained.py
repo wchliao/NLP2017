@@ -118,9 +118,9 @@ def readTest(path):
             X_test.append(padding(vec))
     return X_test
 
-X_train, y_train = readTrainORValid('./data/train.simp.seg', op)
-#X_train, y_train = readTrainORValid('./myData/train0.csv', 'None')
-#X_valid, y_valid = readTrainORValid('./myData/valid0.csv', 'None')
+#X_train, y_train = readTrainORValid('./data/train.simp.seg', op)
+X_train, y_train = readTrainORValid('./myData/train0.csv', 'None')
+X_valid, y_valid = readTrainORValid('./myData/valid0.csv', 'None')
 X_test = readTest('./data/test.simp.seg')
 
 # Reverses all label2id.
@@ -171,12 +171,13 @@ print(model.summary())
 model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size)
 
 # Final evaluation of the model
-#scores = model.evaluate(X_valid, y_valid, verbose=0)
-#print("Accuracy: %.2f%%" % (scores[1]*100))
+scores = model.evaluate(X_valid, y_valid, verbose=0)
+print("Accuracy: %.2f%%" % (scores[1]*100))
 
 predict = model.predict(X_test, batch_size=batch_size)
 print ('Predict:', predict)
-with open('./log/pretrain'+'_'+op+'_'str(layer_N)+'_'+str(learning_rate)+'_'+str(epochs)+'_'+str(dropout_prob1)+'_'+str(dropout_prob2)+'_'+str(shuffle)+'.csv', 'w') as file:
+
+with open('./log/pretrain'+'_'+op+'_'+str(layer_N)+'_'+str(learning_rate)+'_'+str(epochs)+'_'+str(dropout_prob1)+'_'+str(dropout_prob2)+'_'+str(shuffle)+'.csv', 'w') as file:
     file.write('Id,Relation\n')
     for id, ans in enumerate(predict):
         file.write('%d,%s\n' % (id + 6639, id2label[np.argmax(ans)]))
