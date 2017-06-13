@@ -15,6 +15,14 @@ import pickle
 
 batch_size = 128
 epochs = 100
+learning_rate = 0.001
+layer_N = 3
+dropout_prob1 = 0
+dropout_prob2 = 0.2
+op='None'
+shuffle=True
+print('batch_size, epochs, learning_rate, layer_N, dropout_prob1, dropout_prob2, op')
+print(batch_size, epochs, learning_rate, layer_N, dropout_prob1, dropout_prob2, op)
 
 # fix random seed for reproducibility
 np.random.seed(7)
@@ -25,7 +33,6 @@ label2id = dict()
 # --------- Load word embedding --------- #
 words, embeddings = pickle.load(open('/tmp2/eee/polyglot-zh.pkl', 'rb'), encoding='latin1')
 print ('%d Zh word embeddings are loaded.' % len(words))
-print ('Embedding size', len(embeddings[0]))
 word2id = { w:i for (i,w) in enumerate(words) }
 
 def toVec(seg):
@@ -73,6 +80,8 @@ def balanceData(df, op):
         frames = [df_expa.copy()]+[df_cont.copy()]*3+[df_comp.copy()]*5+[df_temp.copy()]*6
     elif op == 'valid':
         frames = [df_expa.copy()]+[df_cont.copy()]*3+[df_comp.copy()]*2+[df_temp.copy()]*2
+    elif op == 'minor':
+        frames = [df_expa.copy()]+[df_cont.copy()]*2+[df_comp.copy()]*2+[df_temp.copy()]*2
     result = pd.concat(frames, ignore_index='true')
     print('After:')
     counts = result.Relation.value_counts()
@@ -80,11 +89,11 @@ def balanceData(df, op):
         print(i, counts[i]/counts.sum())
     return result
 
-def readTrainORValid(path, op=None):
+def readTrainORValid(path, op):
     X = []
     y = []
     df = pd.read_csv(path)
-    if op != None:
+    if op != 'None':
         df = balanceData(df, op)
     for i in range(df.shape[0]):
         _, seg1, seg2, ans = df.iloc[i].Id, df.iloc[i].Clause1, df.iloc[i].Clause2, df.iloc[i].Relation
@@ -109,9 +118,9 @@ def readTest(path):
             X_test.append(padding(vec))
     return X_test
 
-#X_train, y_train = readTrainORValid('./data/train.simp.seg')
-X_train, y_train = readTrainORValid('./myData/train0.csv', 'train')
-X_valid, y_valid = readTrainORValid('./myData/valid0.csv', None)
+X_train, y_train = readTrainORValid('./data/train.simp.seg', op)
+#X_train, y_train = readTrainORValid('./myData/train0.csv', 'None')
+#X_valid, y_valid = readTrainORValid('./myData/valid0.csv', 'None')
 X_test = readTest('./data/test.simp.seg')
 
 # Reverses all label2id.
@@ -119,13 +128,13 @@ for label, rep in label2id.items():
     id2label[reverse_one_hot(rep)] = label 
     # id2label[rep] = label 
 
-shuffle_indices = np.random.permutation(np.arange(len(y_train)))
-X_train = np.asarray(X_train)
-X_train = X_train[shuffle_indices]
-y_train = y_train[shuffle_indices]
-X_train = list(X_train[shuffle_indices])
-for i in range(len(X_train)):
-    X_train[i] = list(X_train[i])
+if shuffle:
+    shuffle_indices = np.random.permutation(np.arange(len(y_train)))
+    y_train = y_train[shuffle_indices]
+    X_train = np.asarray(X_train)
+    X_train = list(X_train[shuffle_indices])
+    for i in range(len(X_train)):
+        X_train[i] = list(X_train[i])
 
 # print ('X_train:', X_train)
 # print ('y_train:', y_train)
@@ -145,37 +154,35 @@ model.add(Embedding(
     trainable=False
 ))
 
-model.add(Conv1D(filters=32, kernel_size=3, padding='same', activation='relu'))
-model.add(MaxPooling1D(pool_size=2))
-model.add(Dropout(0.25))
+for i in range(layer_N):
+    model.add(Conv1D(filters=32, kernel_size=3, padding='same', activation='relu'))
+    model.add(MaxPooling1D(pool_size=2))
+    model.add(Dropout(dropout_prob1))
 
-#model.add(Conv1D(filters=32, kernel_size=4, padding='same', activation='relu'))
-#model.add(MaxPooling1D(pool_size=2))
-#model.add(Dropout(0.25))
-
-#model.add(Conv1D(filters=32, kernel_size=5, padding='same', activation='relu'))
-#model.add(MaxPooling1D(pool_size=2))
-#model.add(Dropout(0.25))
 
 model.add(Flatten())
-#model.add(Dropout(0.5))
+model.add(Dropout(dropout_prob2))
 model.add(Dense(4, activation='softmax'))
 
-adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
 
 model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
 print(model.summary())
 model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size)
 
 # Final evaluation of the model
-scores = model.evaluate(X_valid, y_valid, verbose=0)
-print("Accuracy: %.2f%%" % (scores[1]*100))
+#scores = model.evaluate(X_valid, y_valid, verbose=0)
+#print("Accuracy: %.2f%%" % (scores[1]*100))
 
 predict = model.predict(X_test, batch_size=batch_size)
 print ('Predict:', predict)
-with open('result.csv', 'w') as file:
+with open('./log/pretrain'+'_'+op+'_'str(layer_N)+'_'+str(learning_rate)+'_'+str(epochs)+'_'+str(dropout_prob1)+'_'+str(dropout_prob2)+'_'+str(shuffle)+'.csv', 'w') as file:
     file.write('Id,Relation\n')
     for id, ans in enumerate(predict):
         file.write('%d,%s\n' % (id + 6639, id2label[np.argmax(ans)]))
 
+with open('result.csv', 'w') as file:
+    file.write('Id,Relation\n')
+    for id, ans in enumerate(predict):
+        file.write('%d,%s\n' % (id + 6639, id2label[np.argmax(ans)]))
 print ('All labels predicted!')
