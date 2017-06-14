@@ -6,7 +6,6 @@ import pandas as pd
 from keras.datasets import imdb
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation, Flatten, Reshape
-from keras.layers import LSTM
 from keras.layers.convolutional import Conv1D
 from keras.layers.convolutional import MaxPooling1D 
 from keras.layers.pooling import GlobalMaxPooling1D
@@ -179,7 +178,6 @@ for ii in range(5):
         input_length=max_review_length,
         trainable=False
     ))
-
     if max_over_time_pooling:
         for i in range(conv_layer_num):
             model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
@@ -210,6 +208,7 @@ for ii in range(5):
 
     model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
     print(model.summary())
+    X_train = np.asarray(X_train)
     model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size)
 
     # Final evaluation of the model

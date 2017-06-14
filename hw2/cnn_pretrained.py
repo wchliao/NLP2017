@@ -4,10 +4,12 @@ import argparse
 import numpy as np
 import pandas as pd
 from keras.datasets import imdb
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation, Flatten, Reshape, LSTM
+from keras.models import Sequential, Model
+from keras.layers import Dense, Dropout, Activation, Flatten, Reshape
+from keras.layers.merge import Concatenate
 from keras.layers.convolutional import Conv1D
-from keras.layers.pooling import MaxPooling1D, GlobalMaxPooling1D
+from keras.layers.convolutional import MaxPooling1D 
+from keras.layers.pooling import GlobalMaxPooling1D
 from keras.layers.embeddings import Embedding
 from keras.preprocessing import sequence
 from keras.optimizers import Adam
@@ -38,19 +40,23 @@ learning_rate = float(args.learning_rate)#0.001
 epochs =int(args.epochs)#150
 
 filter_num = int(args.filter_num)#32
-filter_size = int(args.filter_size)#3
+filter_size = list(map(int, args.filter_size.split(','))) #3,4,5
+if len(filter_size) > 1:
+    multipleFilterWindows = True
+else:
+    multipleFilterWindows = False
 conv_layer_num  =int(args.conv_layer_num)#2
 dropout_prob1 = float(args.dropout_prob1)#0.25
 dropout_prob2 = float(args.dropout_prob2)#0.5
 op=args.op
 if args.shuffle == 'T':
-    shuffle=True
+    shuffle = True
 else:
-    shuffle=False
+    shuffle = False
 if args.addOneMoreDense== 'T':
-    addOneMoreDense=True
+    addOneMoreDense = True
 else:
-    addOneMoreDense=False
+    addOneMoreDense = False
 one_more_dense_dim = int(args.one_more_dense_dim)#16
 if args.max_over_time_pooling == 'T':
     max_over_time_pooling = True
@@ -178,53 +184,87 @@ if shuffle:
 
 
 # create the model
-model = Sequential()
-model.add(Embedding(
-    len(embeddings),
-    len(embeddings[0]), # Embedding length
-    weights=[ embeddings ],
-    input_length=max_review_length,
-    trainable=False
-))
 
-if max_over_time_pooling:
-    for i in range(conv_layer_num):
-        model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
-    model.add(GlobalMaxPooling1D())
-    model.add(Dropout(dropout_prob1))
-else: 
-    if conv_layer_num == 2:
-        for i in range(2):
+if multipleFilterWindows:
+    branches = []
+    for ks in filter_size:
+        branch = Sequential()
+        branch.add(Embedding(len(embeddings),
+                            len(embeddings[0]), # Embedding length
+                            weights=[ embeddings ],
+                            input_length=max_review_length,
+                            trainable=False))
+        branch.add(Conv1D(filters=filter_num, kernel_size=ks, padding='valid', activation='relu', strides=1))
+        branch.add(GlobalMaxPooling1D())
+        branches.append(branch)
+
+    conc = Concatenate()([b.output for b in branches])
+    if addOneMoreDense:
+        out = (Dense(one_more_dense_dim, activation='relu'))(conc)
+        out = Dropout(dropout_prob2)(out)
+    else:
+        out = Dropout(dropout_prob2)(conc)
+    out = Dense(4, activation='softmax')(out)
+
+    model = Model([b.input for b in branches], out)
+
+
+    adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+
+    model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
+    print(model.summary())
+    X_train = np.asarray(X_train)
+    model.fit([X_train]*len(filter_size), y_train, epochs=epochs, batch_size=batch_size)
+
+else:
+    model = Sequential()
+    model.add(Embedding(
+        len(embeddings),
+        len(embeddings[0]), # Embedding length
+        weights=[ embeddings ],
+        input_length=max_review_length,
+        trainable=False
+    ))
+    if max_over_time_pooling:
+        for i in range(conv_layer_num):
             model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
-        model.add(MaxPooling1D(pool_size=2))
+        model.add(GlobalMaxPooling1D())
         model.add(Dropout(dropout_prob1))
-    elif conv_layer_num == 3:
-        for i in range(2):
+    else: 
+        if conv_layer_num == 2:
+            for i in range(2):
+                model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
+            model.add(MaxPooling1D(pool_size=2))
+            model.add(Dropout(dropout_prob1))
+        elif conv_layer_num == 3:
+            for i in range(2):
+                model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
+            model.add(MaxPooling1D(pool_size=2))
+            model.add(Dropout(dropout_prob1))
             model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
-        model.add(MaxPooling1D(pool_size=2))
-        model.add(Dropout(dropout_prob1))
-        model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
-        model.add(MaxPooling1D(pool_size=2))
-        model.add(Dropout(dropout_prob1))
-    model.add(Flatten())
+            model.add(MaxPooling1D(pool_size=2))
+            model.add(Dropout(dropout_prob1))
+        model.add(Flatten())
 
 
-if addOneMoreDense:
-    model.add(Dense(one_more_dense_dim, activation='relu'))
-model.add(Dropout(dropout_prob2))
-model.add(Dense(4, activation='softmax'))
-
-adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
-
-model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
-print(model.summary())
-model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size)
+    if addOneMoreDense:
+        model.add(Dense(one_more_dense_dim, activation='relu'))
+    model.add(Dropout(dropout_prob2))
+    model.add(Dense(4, activation='softmax'))
 
 
-predict = model.predict(X_test, batch_size=batch_size)
+    adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+
+    model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
+    print(model.summary())
+    model.fit([X_train, X_train, X_train], y_train, epochs=epochs, batch_size=batch_size)
+
+
+X_test= np.asarray(X_test)
+predict = model.predict([X_test, X_test, X_test], batch_size=batch_size)
 print ('Predict:', predict)
 
-with open('./log/pretrain'+'_'+str(max_over_time_pooling)+'_'+str(filter_num)+'_'+str(filter_size)+'_'+str(conv_layer_num)+'_'+str(dropout_prob1)+'_'+str(dropout_prob2)+'_'+str(addOneMoreDense)+'_'+str(op)+'_test_'+str(shuffle)+'_'+str(batch_size)+'_'+str(learning_rate)+'_'+str(epochs)+'.csv', 'w') as file:
+with open('./log/pretrain'+'_'+str(filter_num)+'_'+str(args.filter_size)+'_'+str(conv_layer_num)+'_'+str(dropout_prob1)+'_'+str(dropout_prob2)+'_'+str(addOneMoreDense)+'_'+str(op)+'_'+str(shuffle)+'_'+str(batch_size)+'_'+str(learning_rate)+'_'+str(epochs)+'.csv', 'w') as file:
     file.write('Id,Relation\n')
     for id, ans in enumerate(predict):
         file.write('%d,%s\n' % (id + 6639, id2label[np.argmax(ans)]))
