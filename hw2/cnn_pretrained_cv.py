@@ -5,9 +5,11 @@ import numpy as np
 import pandas as pd
 from keras.datasets import imdb
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation, Flatten, Reshape, LSTM
+from keras.layers import Dense, Dropout, Activation, Flatten, Reshape
+from keras.layers import LSTM
 from keras.layers.convolutional import Conv1D
-from keras.layers.pooling import MaxPooling1D, GlobalMaxPooling1D
+from keras.layers.convolutional import MaxPooling1D 
+from keras.layers.pooling import GlobalMaxPooling1D
 from keras.layers.embeddings import Embedding
 from keras.preprocessing import sequence
 from keras.optimizers import Adam
@@ -56,7 +58,6 @@ if args.max_over_time_pooling == 'T':
     max_over_time_pooling = True
 else:
     max_over_time_pooling = False
-
 
 # fix random seed for reproducibility
 np.random.seed(7)
@@ -137,7 +138,6 @@ def readTrainORValid(path, op):
 
         if len(label2id) < 4:
             label2id.setdefault(ans, one_hot(len(label2id)))
-            # label2id.setdefault(ans, len(label2id))
         y.append(label2id[ans])
     y = np.asarray(y)
     return X, y
@@ -153,84 +153,70 @@ def readTest(path):
             X_test.append(padding(vec))
     return X_test
 
-X_train, y_train = readTrainORValid('./data/train.simp.seg', op)
-X_test = readTest('./data/test.simp.seg')
+acc = []
+for ii in range(5):
+    X_train, y_train = readTrainORValid('./myData/train'+str(ii)+'.csv', op)
+    X_valid, y_valid = readTrainORValid('./myData/valid'+str(ii)+'.csv', 'test')
 
-# Reverses all label2id.
-for label, rep in label2id.items():
-    id2label[reverse_one_hot(rep)] = label 
-    # id2label[rep] = label 
+    # Reverses all label2id.
+    for label, rep in label2id.items():
+        id2label[reverse_one_hot(rep)] = label 
 
-if shuffle:
-    shuffle_indices = np.random.permutation(np.arange(len(y_train)))
-    y_train = y_train[shuffle_indices]
-    X_train = np.asarray(X_train)
-    X_train = list(X_train[shuffle_indices])
-    for i in range(len(X_train)):
-        X_train[i] = list(X_train[i])
+    if shuffle:
+        shuffle_indices = np.random.permutation(np.arange(len(y_train)))
+        y_train = y_train[shuffle_indices]
+        X_train = np.asarray(X_train)
+        X_train = list(X_train[shuffle_indices])
+        for i in range(len(X_train)):
+            X_train[i] = list(X_train[i])
 
-# print ('X_train:', X_train)
-# print ('y_train:', y_train)
+    # create the model
+    model = Sequential()
+    model.add(Embedding(
+        len(embeddings),
+        len(embeddings[0]), # Embedding length
+        weights=[ embeddings ],
+        input_length=max_review_length,
+        trainable=False
+    ))
 
-# truncate and pad input sequences
-# X_train = sequence.pad_sequences(X_train, maxlen=max_review_length)
-# X_test = sequence.pad_sequences(X_test, maxlen=max_review_length)
-
-
-# create the model
-model = Sequential()
-model.add(Embedding(
-    len(embeddings),
-    len(embeddings[0]), # Embedding length
-    weights=[ embeddings ],
-    input_length=max_review_length,
-    trainable=False
-))
-
-if max_over_time_pooling:
-    for i in range(conv_layer_num):
-        model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
-    model.add(GlobalMaxPooling1D())
-    model.add(Dropout(dropout_prob1))
-else: 
-    if conv_layer_num == 2:
-        for i in range(2):
+    if max_over_time_pooling:
+        for i in range(conv_layer_num):
             model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
-        model.add(MaxPooling1D(pool_size=2))
-        model.add(Dropout(dropout_prob1))
-    elif conv_layer_num == 3:
-        for i in range(2):
+        model.add(GlobalMaxPooling1D())
+    else: 
+        if conv_layer_num == 2:
+            for i in range(2):
+                model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
+            model.add(MaxPooling1D(pool_size=2))
+            model.add(Dropout(dropout_prob1))
+        elif conv_layer_num == 3:
+            for i in range(2):
+                model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
+            model.add(MaxPooling1D(pool_size=2))
+            model.add(Dropout(dropout_prob1))
             model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
-        model.add(MaxPooling1D(pool_size=2))
-        model.add(Dropout(dropout_prob1))
-        model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
-        model.add(MaxPooling1D(pool_size=2))
-        model.add(Dropout(dropout_prob1))
-    model.add(Flatten())
+            model.add(MaxPooling1D(pool_size=2))
+            model.add(Dropout(dropout_prob1))
+        model.add(Flatten())
 
 
-if addOneMoreDense:
-    model.add(Dense(one_more_dense_dim, activation='relu'))
-model.add(Dropout(dropout_prob2))
-model.add(Dense(4, activation='softmax'))
+    if addOneMoreDense:
+        model.add(Dense(one_more_dense_dim, activation='relu'))
+    model.add(Dropout(dropout_prob2))
+    model.add(Dense(4, activation='softmax'))
 
-adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+    adam = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
 
-model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
-print(model.summary())
-model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size)
+    model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
+    print(model.summary())
+    model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size)
 
+    # Final evaluation of the model
+    scores = model.evaluate(X_valid, y_valid, verbose=0)
+    print("Accuracy: %.2f%%" % (scores[1]*100))
+    acc.append(scores[1])
 
-predict = model.predict(X_test, batch_size=batch_size)
-print ('Predict:', predict)
+print(acc)
+print('avg_acc', sum(acc)/len(acc))
 
-with open('./log/pretrain'+'_'+str(max_over_time_pooling)+'_'+str(filter_num)+'_'+str(filter_size)+'_'+str(conv_layer_num)+'_'+str(dropout_prob1)+'_'+str(dropout_prob2)+'_'+str(addOneMoreDense)+'_'+str(op)+'_test_'+str(shuffle)+'_'+str(batch_size)+'_'+str(learning_rate)+'_'+str(epochs)+'.csv', 'w') as file:
-    file.write('Id,Relation\n')
-    for id, ans in enumerate(predict):
-        file.write('%d,%s\n' % (id + 6639, id2label[np.argmax(ans)]))
-
-with open('result.csv', 'w') as file:
-    file.write('Id,Relation\n')
-    for id, ans in enumerate(predict):
-        file.write('%d,%s\n' % (id + 6639, id2label[np.argmax(ans)]))
-print ('All labels predicted!')
