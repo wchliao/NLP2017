@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import sys
 import argparse
 import numpy as np
 import pandas as pd
@@ -30,11 +30,15 @@ def parse_args():
     parser.add_argument('-ad', '--addOneMoreDense')
     parser.add_argument('-dd', '--one_more_dense_dim')
     parser.add_argument('-gl', '--max_over_time_pooling')
+    parser.add_argument('-di', '--diff')
     return parser.parse_args()
 
-# python3 cnn_pretrained_cv.py -b 128 -l 0.001 -e 100 -fn 24 -fs 3 -cn 2 -d1 0.25 -d2 0.5 -op test -sh T -ad F -dd 0 -gl T
+# python3 cnn_pretrained.py -b 128 -l 0.001 -e 50 -fn 24 -fs 3 -cn 1 -d1 0 -d2 0.5 -op test -sh T -ad F -dd 0 -gl T -di 0.2
+if len(sys.argv) != 29:
+    raise ValueError('Incorrect number of arguments')
 args = parse_args()
 
+diff = float(args.diff)
 batch_size = int(args.batch_size)#128
 learning_rate = float(args.learning_rate)#0.001
 epochs =int(args.epochs)#150
@@ -51,17 +55,24 @@ dropout_prob2 = float(args.dropout_prob2)#0.5
 op=args.op
 if args.shuffle == 'T':
     shuffle = True
-else:
+elif args.shuffle == 'F':
     shuffle = False
+else:
+    raise ValueError('Wrong arg: shuffle')
+
 if args.addOneMoreDense== 'T':
     addOneMoreDense = True
-else:
+elif args.addOneMoreDense == 'F':
     addOneMoreDense = False
+else:
+    raise ValueError('Wrong arg: addOneMoreDense')
 one_more_dense_dim = int(args.one_more_dense_dim)#16
 if args.max_over_time_pooling == 'T':
     max_over_time_pooling = True
-else:
+elif args.max_over_time_pooling =='F':
     max_over_time_pooling = False
+else:
+    raise ValueError('Wrong arg: max_over_time_pooling')
 
 
 # fix random seed for reproducibility
@@ -229,7 +240,6 @@ else:
         for i in range(conv_layer_num):
             model.add(Conv1D(filters=filter_num, kernel_size=filter_size, padding='same', activation='relu'))
         model.add(GlobalMaxPooling1D())
-        model.add(Dropout(dropout_prob1))
     else: 
         if conv_layer_num == 2:
             for i in range(2):
@@ -257,20 +267,55 @@ else:
 
     model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
     print(model.summary())
-    model.fit([X_train, X_train, X_train], y_train, epochs=epochs, batch_size=batch_size)
+    model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size)
 
 
 X_test= np.asarray(X_test)
-predict = model.predict([X_test, X_test, X_test], batch_size=batch_size)
+predict = model.predict([X_test]*len(filter_size), batch_size=batch_size)
 print ('Predict:', predict)
 
 with open('./log/pretrain'+'_'+str(filter_num)+'_'+str(args.filter_size)+'_'+str(conv_layer_num)+'_'+str(dropout_prob1)+'_'+str(dropout_prob2)+'_'+str(addOneMoreDense)+'_'+str(op)+'_'+str(shuffle)+'_'+str(batch_size)+'_'+str(learning_rate)+'_'+str(epochs)+'.csv', 'w') as file:
     file.write('Id,Relation\n')
     for id, ans in enumerate(predict):
-        file.write('%d,%s\n' % (id + 6639, id2label[np.argmax(ans)]))
+        index_list = list(range(4))
+        arg_i = np.argmax(ans)
+        if id2label[arg_i] == 'Expansion':
+            index_list.remove(arg_i)
+            if ans[arg_i] - max(ans[index_list]) < diff:
+                file.write('%d,%s\n' % (id + 6639, id2label[index_list[np.argmax(ans[index_list])]]))
+            else:
+                file.write('%d,%s\n' % (id + 6639, id2label[arg_i]))
+        else:
+            file.write('%d,%s\n' % (id + 6639, id2label[np.argmax(ans)]))
 
 with open('result.csv', 'w') as file:
     file.write('Id,Relation\n')
     for id, ans in enumerate(predict):
-        file.write('%d,%s\n' % (id + 6639, id2label[np.argmax(ans)]))
+        index_list = list(range(4))
+        arg_i = np.argmax(ans)
+        if id2label[arg_i] == 'Expansion':
+            index_list.remove(arg_i)
+            if ans[arg_i] - max(ans[index_list]) < diff:
+                file.write('%d,%s\n' % (id + 6639, id2label[index_list[np.argmax(ans[index_list])]]))
+            else:
+                file.write('%d,%s\n' % (id + 6639, id2label[arg_i]))
+        else:
+            file.write('%d,%s\n' % (id + 6639, id2label[np.argmax(ans)]))
+
+with open('ans_distri.csv', 'w') as file:
+    file.write('Id,Relation,'+id2label[0]+','+id2label[1]+','+id2label[2]+','+id2label[3]+'\n')
+    for id, ans in enumerate(predict):
+        file.write('%d,%s' % (id + 6639, id2label[np.argmax(ans)]))
+        for i in [str(j) for j in ans]:
+            file.write(',%s' % (i))
+        file.write('\n')
+
+for i in range(4):
+    with open('no_'+id2label[i]+'.csv', 'w') as file:
+        file.write('Id,Relation\n')
+        index_list = list(range(4))
+        index_list.remove(i)
+        for id, ans in enumerate(predict):
+            ans_trim = np.delete(ans, i)
+            file.write('%d,%s\n' % (id + 6639, id2label[index_list[np.argmax(ans_trim)]]))
 print ('All labels predicted!')
