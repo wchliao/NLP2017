@@ -23,7 +23,7 @@ For detailed usage, please use `python3 parser.py -h`
 
 1. Install JGibbLabeledLDA module
 
-Please follow https://github.com/linamy85/NLP2017/blob/master/hw1/JGibbLabeledLDA.md
+Please follow the instructions in `JGibbLabeledLDA.md`.
 
 2. Preprocess the data input
 
